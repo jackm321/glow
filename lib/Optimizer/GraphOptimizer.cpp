@@ -21,6 +21,7 @@
 #include "glow/Graph/Utils.h"
 #include "glow/Optimizer/Optimizer.h"
 #include "glow/Quantization/Base/Base.h"
+#include "glow/Support/Error.h"
 
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -282,9 +283,9 @@ static bool sinkTranposeBelowChannelShuffle(Function *F,
   // Create a new ChannelShuffle with kernel parameter tranposed by the
   // sinkingTR's shuffle because that Transpose will now be moved below this
   // ChannelShuffle operator.
-  auto *newChannelShuffle = F->createChannelShuffle(
+  auto *newChannelShuffle = exitOnErr(F->createChannelShuffle(
       "channel_shuffle", sinkingTR->getInput(), paramsM->group,
-      sinkingTR->getShuffle()[paramsM->kernel]);
+      sinkingTR->getShuffle()[paramsM->kernel]));
 
   // Create a copy of sinkingTR and insert after newChannelShuffle.
   auto *newSinkingTR = F->createTranspose(

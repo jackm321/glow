@@ -837,8 +837,10 @@ SliceNode *Function::createSlice(llvm::StringRef name, NodeValue input,
   return addNode(new SliceNode(name, NT, input, beginV));
 }
 
-Node *Function::createChannelShuffle(llvm::StringRef name, NodeValue input,
-                                     size_t group, size_t kernel) {
+llvm::Expected<Node *> Function::createChannelShuffle(llvm::StringRef name,
+                                                      NodeValue input,
+                                                      size_t group,
+                                                      size_t kernel) {
   auto inDims = input.dims();
   assert(kernel < inDims.size());
 

@@ -2237,7 +2237,7 @@ TEST_F(GraphOptz, sinkTransposeBelowChannelShuffleNodesAndEliminate) {
   Node *K =
       mod_.createPlaceholder(ElemKind::FloatTy, inputDims, "input", false);
   K = F_->createTranspose("unnecessary_transpose_1", K, {0, 3, 1, 2});
-  K = F_->createChannelShuffle("channel_shuffle", K, 4, 1);
+  K = exitOnErr(F_->createChannelShuffle("channel_shuffle", K, 4, 1));
   K = F_->createTranspose("unnecessary_transpose_2", K, {0, 2, 3, 1});
   auto *save = F_->createSave("ret", K);
 

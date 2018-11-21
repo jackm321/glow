@@ -18,6 +18,7 @@
 
 #include "glow/Base/Type.h"
 #include "glow/Graph/Nodes.h"
+#include "glow/Support/Error.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -379,8 +380,9 @@ public:
   /// be represented as groupX(D/group) matrix, transposed and concatenated back
   /// to size D. For example, shuffle of {1, 2, 3, 4, 5, 6} with \p group = 2 is
   /// {1, 4, 2, 5, 3, 6}
-  Node *createChannelShuffle(llvm::StringRef name, NodeValue input,
-                             size_t group, size_t kernel);
+  llvm::Expected<Node *> createChannelShuffle(llvm::StringRef name,
+                                              NodeValue input, size_t group,
+                                              size_t kernel);
 
   /// Removes single-dimensional entries from the shape of a tensor. The
   /// parameter \p axes is a list of positive integers, indicating the

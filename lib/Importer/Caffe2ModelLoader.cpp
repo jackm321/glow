@@ -18,6 +18,7 @@
 #include "glow/Base/Tensor.h"
 #include "glow/Graph/Graph.h"
 #include "glow/Graph/Nodes.h"
+#include "glow/Support/Error.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -354,7 +355,7 @@ void Caffe2ModelLoader::loadOperator(const caffe2::OperatorDef &op) {
     size_t group = loadInt(dict["group"]);
     size_t kernel = loadInt(dict["kernel"]);
 
-    Node *node = G_.createChannelShuffle(opName, in, group, kernel);
+    Node *node = exitOnErr(G_.createChannelShuffle(opName, in, group, kernel));
     addNodeAsOutput(op, node);
     return;
   }

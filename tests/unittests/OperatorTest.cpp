@@ -20,6 +20,7 @@
 #include "glow/IR/IRBuilder.h"
 #include "glow/IR/Instrs.h"
 #include "glow/Quantization/Quantization.h"
+#include "glow/Support/Error.h"
 
 #include "gtest/gtest.h"
 
@@ -2647,7 +2648,7 @@ TEST_P(InterpAndCPU, ChannelShuffle) {
       mod_.createPlaceholder(ElemKind::FloatTy, {1, 12, 1, 1}, "inputs", false);
   ctx_.allocate(inputs)->getHandle() = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
-  Node *CS = F_->createChannelShuffle("CS", inputs, 3, 1);
+  Node *CS = exitOnErr(F_->createChannelShuffle("CS", inputs, 3, 1));
   SaveNode *S = F_->createSave("save", CS);
   ctx_.allocate(S->getPlaceholder());
 
