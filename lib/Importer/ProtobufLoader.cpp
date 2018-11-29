@@ -16,7 +16,6 @@
 
 #include "glow/Importer/ProtobufLoader.h"
 
-#include <cassert>
 #include <string>
 
 namespace glow {
@@ -100,17 +99,40 @@ bool ProtobufLoader::hasNodeByName(llvm::StringRef name) const {
   return getNodeValueByNameOrNullNodeValue(name).getNode() != nullptr;
 }
 
+llvm::Error ProtobufLoader::construct(llvm::ArrayRef<const char *> tensorNames,
+                                      llvm::ArrayRef<TypeRef> types) {
+  RETURN_ERR_IF_NOT(tensorNames.size() == types.size(),
+                    "Invalid initialization list");
+  for (unsigned i = 0; i < tensorNames.size(); i++) {
+    RETURN_ERR_IF_NOT(!hasNodeByName(tensorNames[i]),
+                      "Input names have duplicate");
+    auto placeholderOrErr =
+        createAndRegisterPlaceholder(tensorNames[i], types[i]);
+    if (!placeholderOrErr) {
+      return placeholderOrErr.takeError();
+    }
+  }
+  RETURN_SUCCESS();
+}
+
 ProtobufLoader::ProtobufLoader(llvm::ArrayRef<const char *> tensorNames,
+                               llvm::ArrayRef<TypeRef> types, Function &F)
+    : ProtobufLoader(nullptr, tensorNames, types, F) {}
+
+ProtobufLoader::ProtobufLoader(llvm::Error *errPtr,
+                               llvm::ArrayRef<const char *> tensorNames,
                                llvm::ArrayRef<TypeRef> types, Function &F)
     : G_(F) {
   // Verify that the version of the library that we linked against is
   // compatible with the version of the headers we compiled against.
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-  assert(tensorNames.size() == types.size() && "Invalid initialization list");
-  for (unsigned i = 0; i < tensorNames.size(); i++) {
-    assert(!hasNodeByName(tensorNames[i]) && "Input names have duplicate");
-    TEMP_UNWRAP(createAndRegisterPlaceholder(tensorNames[i], types[i]));
+  auto err = construct(tensorNames, types);
+
+  if (errPtr) {
+    *errPtr = std::move(err);
+  } else {
+    UNWRAP(std::move(err));
   }
 }
 

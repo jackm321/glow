@@ -134,6 +134,10 @@ public:
   ProtobufLoader(llvm::ArrayRef<const char *> tensorNames,
                  llvm::ArrayRef<TypeRef> types, Function &F);
 
+  // TODO add comments
+  ProtobufLoader(llvm::Error *errPtr, llvm::ArrayRef<const char *> tensorNames,
+                 llvm::ArrayRef<TypeRef> types, Function &F);
+
   virtual ~ProtobufLoader();
 
   /// \returns the single final output of the network. The function assumes that
@@ -149,6 +153,10 @@ public:
   /// \returns the Placeholder for the external output with \p name.
   /// \pre outputVarsByName_.find(name) != outputVarsByName_.end()
   llvm::Expected<Placeholder *> getOutputByName(llvm::StringRef name) const;
+
+private:
+  llvm::Error construct(llvm::ArrayRef<const char *> tensorNames,
+                        llvm::ArrayRef<TypeRef> types);
 };
 
 } // namespace glow

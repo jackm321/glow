@@ -55,11 +55,11 @@ llvm::Error ONNXIFIModelLoader::loadInputs(ONNX_NAMESPACE::GraphProto &net) {
 
     Tensor T;
     RETURN_IF_ERR(setTensorType(in.type(), &T));
-    if (auto varOrErr = createAndRegisterPlaceholder(in.name(), &T.getType())) {
-      onnxNameToInputVars_.try_emplace(in.name(), UNWRAP(std::move(varOrErr)));
-    } else {
-      return varOrErr.takeError();
-    }
+
+    Placeholder *placeholder;
+    ASSIGN_VALUE_OR_RETURN_ERR(
+        placeholder, createAndRegisterPlaceholder(in.name(), &T.getType()));
+    onnxNameToInputVars_.try_emplace(in.name(), placeholder);
   }
   RETURN_SUCCESS();
 }
@@ -153,12 +153,13 @@ llvm::Expected<std::unique_ptr<ONNXIFIModelLoader>> ONNXIFIModelLoader::parse(
   return loader;
 }
 
-std::vector<std::pair<Kinded::Kind, ElemKind>>
+llvm::Expected<std::vector<std::pair<Kinded::Kind, ElemKind>>>
 ONNXIFIModelLoader::parseOperators(const void *onnxModel,
                                    size_t onnxModelSize) {
   std::vector<std::pair<Kinded::Kind, ElemKind>> result;
-  ONNX_NAMESPACE::ModelProto modelDef =
-      TEMP_UNWRAP(ONNXModelLoader::loadProto(onnxModel, onnxModelSize));
+  ONNX_NAMESPACE::ModelProto modelDef;
+  ASSIGN_VALUE_OR_RETURN_ERR(
+      modelDef, ONNXModelLoader::loadProto(onnxModel, onnxModelSize));
 
   ONNX_NAMESPACE::GraphProto graph = modelDef.graph();
 

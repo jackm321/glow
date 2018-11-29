@@ -62,9 +62,10 @@ public:
   /// the \p onnxModel is not supported by the ONNX model parser.
   /// \returns std::vector of Glow operation kind and element kind otherwise.
   ///          It represents a mapping between ONNX nodes and Glow operations.
+  /// \returns llvm::Error if an error was encountered
   ///
   /// \param onnxModel contains a single ONNX operator.
-  static std::vector<std::pair<Kinded::Kind, ElemKind>>
+  static llvm::Expected<std::vector<std::pair<Kinded::Kind, ElemKind>>>
   parseOperators(const void *onnxModel, size_t onnxModelSize);
 };
 

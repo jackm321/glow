@@ -47,6 +47,12 @@ class ONNXModelLoader
   /// in the network. \returns Error if operator \p op cannot be loaded.
   llvm::Error loadOperator(const ONNX_NAMESPACE::NodeProto &op);
 
+  // TODO add comments
+  // TODO rename this to constructHelper or something
+  llvm::Error construct(const std::string &modelDescFilename,
+                        llvm::ArrayRef<const char *> tensorNames,
+                        llvm::ArrayRef<TypeRef> types);
+
   /// ONNX model ir_version;
   size_t irVersion_;
 
@@ -75,6 +81,9 @@ public:
   /// Creates a ONNX model loader to build \p F.
   ONNXModelLoader(Function &F);
 
+  // TODO comments
+  ONNXModelLoader(llvm::Error *errPtr, Function &F);
+
   /// \returns Expected<ModelProto> if a ModelProto can be constructed from the
   /// contents of the file \p filename and Error otherwise.
   /// Loads ModelProto from the file containing serialized protobuf.
@@ -100,6 +109,10 @@ public:
   /// The types in \p types match the list of names \p tensorNames and used as
   /// inputs to the network.
   ONNXModelLoader(const std::string &modelDescFilename,
+                  llvm::ArrayRef<const char *> tensorNames,
+                  llvm::ArrayRef<TypeRef> types, Function &F);
+
+  ONNXModelLoader(llvm::Error *errPtr, const std::string &modelDescFilename,
                   llvm::ArrayRef<const char *> tensorNames,
                   llvm::ArrayRef<TypeRef> types, Function &F);
 };

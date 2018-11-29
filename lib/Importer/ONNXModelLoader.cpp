@@ -626,8 +626,10 @@ llvm::Error ONNXModelLoader::loadNetwork(ONNX_NAMESPACE::GraphProto &net) {
   RETURN_SUCCESS();
 }
 
-ONNXModelLoader::ONNXModelLoader(Function &F)
-    : CommonOperatorLoader({}, {}, F) {}
+ONNXModelLoader::ONNXModelLoader(Function &F) : ONNXModelLoader(nullptr, F) {}
+
+ONNXModelLoader::ONNXModelLoader(llvm::Error *errPtr, Function &F)
+    : CommonOperatorLoader(errPtr, {}, {}, F) {}
 
 llvm::Error
 ONNXModelLoader::checkInputs(ONNX_NAMESPACE::GraphProto &net,
@@ -661,21 +663,40 @@ ONNXModelLoader::checkInputs(ONNX_NAMESPACE::GraphProto &net,
   RETURN_SUCCESS();
 }
 
+llvm::Error ONNXModelLoader::construct(const std::string &modelDescFilename,
+                                       llvm::ArrayRef<const char *> tensorNames,
+                                       llvm::ArrayRef<TypeRef> types) {
+  // The ONNX model that we are deserializing.
+  ONNX_NAMESPACE::ModelProto modelDef;
+  ASSIGN_VALUE_OR_RETURN_ERR(modelDef, loadProto(modelDescFilename));
+
+  RETURN_IF_ERR(setVersion(modelDef));
+
+  ONNX_NAMESPACE::GraphProto graphDef = modelDef.graph();
+  RETURN_IF_ERR(checkInputs(graphDef, tensorNames, types));
+
+  RETURN_IF_ERR(loadInitializers(graphDef));
+  RETURN_IF_ERR(loadNetwork(graphDef));
+
+  RETURN_IF_ERR(setOutputNodes(graphDef));
+
+  RETURN_SUCCESS();
+}
+
 ONNXModelLoader::ONNXModelLoader(const std::string &modelDescFilename,
                                  llvm::ArrayRef<const char *> tensorNames,
                                  llvm::ArrayRef<TypeRef> types, Function &F)
-    : CommonOperatorLoader(tensorNames, types, F) {
-  // The ONNX model that we are deserializing.
-  ONNX_NAMESPACE::ModelProto modelDef =
-      TEMP_UNWRAP(loadProto(modelDescFilename));
+    : ONNXModelLoader(nullptr, modelDescFilename, tensorNames, types, F) {}
 
-  TEMP_UNWRAP(setVersion(modelDef));
-
-  ONNX_NAMESPACE::GraphProto graphDef = modelDef.graph();
-  TEMP_UNWRAP(checkInputs(graphDef, tensorNames, types));
-
-  TEMP_UNWRAP(loadInitializers(graphDef));
-  TEMP_UNWRAP(loadNetwork(graphDef));
-
-  TEMP_UNWRAP(setOutputNodes(graphDef));
+ONNXModelLoader::ONNXModelLoader(llvm::Error *errPtr,
+                                 const std::string &modelDescFilename,
+                                 llvm::ArrayRef<const char *> tensorNames,
+                                 llvm::ArrayRef<TypeRef> types, Function &F)
+    : CommonOperatorLoader(errPtr, tensorNames, types, F) {
+  auto err = construct(modelDescFilename, tensorNames, types);
+  if (errPtr) {
+    *errPtr = std::move(err);
+  } else {
+    UNWRAP(std::move(err));
+  }
 }

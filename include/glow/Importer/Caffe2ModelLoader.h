@@ -59,6 +59,10 @@ class Caffe2ModelLoader
   /// file.
   llvm::Expected<caffe2::NetDef> loadProtoFile(const std::string &filename);
 
+  // TODO add comments
+  llvm::Error construct(const std::string &netDescFilename,
+                        const std::string &netWeightFilename);
+
 public:
   /// Loads the caffe2 model that's represented by a network description file,
   /// serialized in \p netDescFilename, and weights file, serialized in
@@ -66,6 +70,12 @@ public:
   /// The list \p types and \p names are used to initialized the inputs and
   /// outputs with specific names and types.
   Caffe2ModelLoader(const std::string &netDescFilename,
+                    const std::string &netWeightFilename,
+                    llvm::ArrayRef<const char *> names,
+                    llvm::ArrayRef<TypeRef> types, Function &F);
+
+  // TODO add comments
+  Caffe2ModelLoader(llvm::Error *errPtr, const std::string &netDescFilename,
                     const std::string &netWeightFilename,
                     llvm::ArrayRef<const char *> names,
                     llvm::ArrayRef<TypeRef> types, Function &F);

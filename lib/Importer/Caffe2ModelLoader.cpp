@@ -584,7 +584,7 @@ llvm::Error Caffe2ModelLoader::loadOperator(const caffe2::OperatorDef &op) {
       break;
     }
     default:
-      llvm_unreachable("Unsupported Cast type.");
+      RETURN_ERR("Unsupported Cast type.");
     }
 
     addNodeAsOutput(op, in);
@@ -839,17 +839,39 @@ llvm::Error Caffe2ModelLoader::loadWeights(caffe2::NetDef &net) {
   RETURN_SUCCESS();
 }
 
+llvm::Error Caffe2ModelLoader::construct(const std::string &netDescFilename,
+                                         const std::string &netWeightFilename) {
+  // The caffe2 network descriptor that we are deserializing.
+  caffe2::NetDef networkDef;
+  ASSIGN_VALUE_OR_RETURN_ERR(networkDef, loadProtoFile(netDescFilename));
+
+  // The caffe2 weights that we are deserializing.
+  caffe2::NetDef weightsDef;
+  ASSIGN_VALUE_OR_RETURN_ERR(weightsDef, loadProtoFile(netWeightFilename));
+
+  RETURN_IF_ERR(loadWeights(weightsDef));
+  RETURN_IF_ERR(loadNetwork(networkDef));
+
+  RETURN_SUCCESS();
+}
+
 Caffe2ModelLoader::Caffe2ModelLoader(const std::string &netDescFilename,
                                      const std::string &netWeightFilename,
                                      llvm::ArrayRef<const char *> names,
                                      llvm::ArrayRef<TypeRef> types, Function &F)
-    : CommonOperatorLoader(names, types, F) {
-  // The caffe2 network descriptor that we are deserializing.
-  caffe2::NetDef networkDef = UNWRAP(loadProtoFile(netDescFilename));
+    : Caffe2ModelLoader(nullptr, netDescFilename, netWeightFilename, names,
+                        types, F) {}
 
-  // The caffe2 weights that we are deserializing.
-  caffe2::NetDef weightsDef = UNWRAP(loadProtoFile(netWeightFilename));
-
-  TEMP_UNWRAP(loadWeights(weightsDef));
-  TEMP_UNWRAP(loadNetwork(networkDef));
+Caffe2ModelLoader::Caffe2ModelLoader(llvm::Error *errPtr,
+                                     const std::string &netDescFilename,
+                                     const std::string &netWeightFilename,
+                                     llvm::ArrayRef<const char *> names,
+                                     llvm::ArrayRef<TypeRef> types, Function &F)
+    : CommonOperatorLoader(errPtr, names, types, F) {
+  auto err = construct(netDescFilename, netWeightFilename);
+  if (errPtr) {
+    *errPtr = std::move(err);
+  } else {
+    UNWRAP(std::move(err));
+  }
 }
