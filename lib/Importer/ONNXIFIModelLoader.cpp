@@ -46,21 +46,30 @@ static llvm::Error setTensorType(const ONNX_NAMESPACE::TypeProto &in,
   }
 }
 
-llvm::Error ONNXIFIModelLoader::loadInputs(ONNX_NAMESPACE::GraphProto &net) {
+llvm::Error ONNXIFIModelLoader::loadInputs(ONNX_NAMESPACE::GraphProto &net, bool loadInputsAsTensors) {
+  // llvm::outs() << "loadInputsAsTensors: " << (loadInputsAsTensors ? "true" : "false") << "\n";
+
   for (const auto &in : net.input()) {
     // Skip static weights.
     if (tensors_.count(in.name())) {
       continue;
     }
 
-    Tensor T;
-    RETURN_IF_ERR(setTensorType(in.type(), &T));
-    if (auto varOrErr = createAndRegisterPlaceholder(in.name(), &T.getType())) {
-      onnxNameToInputVars_.try_emplace(in.name(),
-                                       EXIT_ON_ERR(std::move(varOrErr)));
+    if (loadInputsAsTensors) {
+      Tensor *T = new Tensor();
+      RETURN_IF_ERR(setTensorType(in.type(), T));
+      tensors_[in.name()] = T;
     } else {
-      return varOrErr.takeError();
+      Tensor T;
+      RETURN_IF_ERR(setTensorType(in.type(), &T));
+      if (auto varOrErr = createAndRegisterPlaceholder(in.name(), &T.getType())) {
+        onnxNameToInputVars_.try_emplace(in.name(),
+                                         EXIT_ON_ERR(std::move(varOrErr)));
+      } else {
+        return varOrErr.takeError();
+      }
     }
+
   }
   return llvm::Error::success();
 }
@@ -132,25 +141,87 @@ llvm::Error ONNXIFIModelLoader::loadWeights(
 
 llvm::Expected<std::unique_ptr<ONNXIFIModelLoader>> ONNXIFIModelLoader::parse(
     const void *onnxModel, uint32_t onnxModelSize, uint32_t weightsCount,
-    const onnxTensorDescriptorV1 *weightDescriptors, Function &F) {
+    const onnxTensorDescriptorV1 *weightDescriptors, Function &F, llvm::StringRef caller) {
+  // llvm::outs() << "ONNXIFIModelLoader::parse 1 called from" << caller << "\n";
   std::unique_ptr<ONNXIFIModelLoader> loader(new ONNXIFIModelLoader(F));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 2\n";
   ONNX_NAMESPACE::ModelProto modelDef;
   ASSIGN_VALUE_OR_RETURN_ERR(modelDef,
                              loader->loadProto(onnxModel, onnxModelSize));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 3\n";
   RETURN_IF_ERR(loader->setVersion(modelDef));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 4\n";
   RETURN_IF_ERR(loader->loadWeights(weightsCount, weightDescriptors));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 5\n";
   ONNX_NAMESPACE::GraphProto graphDef = modelDef.graph();
 
-  RETURN_IF_ERR(loader->loadInputs(graphDef));
+  // llvm::outs() << "ONNXIFIModelLoader::parse with nodes: [";
+  // for (const auto& node : graphDef.node()) {
+  //   llvm::outs() << node.op_type() << ", ";
+  // }
+  // llvm::outs() << "]\n";
 
+
+  // llvm::outs() << "ONNXIFIModelLoader::parse with inputs: [";
+  // for (const auto& input : graphDef.input()) {
+  //   llvm::outs() << "{";
+  //   llvm::outs() << "name: " <<  input.name() << ", ";
+  //   llvm::outs() << "type: " <<  input.type().tensor_type().elem_type() << ", ";
+  //   llvm::outs() << "dimentions: " <<  input.type().tensor_type().shape().dim().size() << ", ";
+  //   llvm::outs() << "}, ";
+  // }
+  // llvm::outs() << "]\n";
+  //
+  // llvm::outs() << "ONNXIFIModelLoader::parse with outputs: [";
+  // for (const auto& output : graphDef.output()) {
+  //   llvm::outs() << "{";
+  //   llvm::outs() << "name: " <<  output.name() << ", ";
+  //   llvm::outs() << "type: " <<  output.type().tensor_type().elem_type() << ", ";
+  //   llvm::outs() << "dimentions: " <<  output.type().tensor_type().shape().dim().size() << ", ";
+  //   llvm::outs() << "}, ";
+  // }
+  // llvm::outs() << "]\n";
+  //
+  // llvm::outs() << "ONNXIFIModelLoader::parse with value_info: [";
+  // for (const auto& valueInfo : graphDef.value_info()) {
+  //   llvm::outs() << "{";
+  //   llvm::outs() << "name: " <<  valueInfo.name() << ", ";
+  //   llvm::outs() << "type: " <<  valueInfo.type().tensor_type().elem_type() << ", ";
+  //   llvm::outs() << "dimentions: " <<  valueInfo.type().tensor_type().shape().dim().size() << ", ";
+  //   llvm::outs() << "}, ";
+  // }
+  // llvm::outs() << "]\n";
+
+  // llvm::outs() << "ONNXIFIModelLoader::parse with nodes:\n";
+  // for (const auto& node : graphDef.node()) {
+  //   llvm::outs() << "op_type" << node.op_type() << "\n";
+  //   llvm::outs() << "inputs\n";
+  //   for (const auto& input : node.input()) {
+  //     llvm::outs() << "  " << input << "\n";
+  //   }
+  //   llvm::outs() << "outputs\n";
+  //   for (const auto& output : node.output()) {
+  //     llvm::outs() << "  " << output << "\n";
+  //   }
+  //   llvm::outs() << "attributes\n";
+  //   for (const auto& attribute : node.attribute()) {
+  //     llvm::outs() << "  " << attribute.name() << "\n";
+  //   }
+    // llvm::outs() << "type: " <<  valueInfo.type().tensor_type().elem_type() << ", ";
+    // llvm::outs() << "dimentions: " <<  valueInfo.type().tensor_type().shape().dim().size() << ", ";
+    // llvm::outs() << "}, ";
+  // }
+  // llvm::outs() << "\n";
+
+  bool isCheckGraph = caller == "BackendId::checkGraph";
+
+  RETURN_IF_ERR(loader->loadInputs(graphDef, isCheckGraph));
+  // llvm::outs() << "ONNXIFIModelLoader::parse 6\n";
   RETURN_IF_ERR(loader->loadNetwork(graphDef));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 7\n";
+  // llvm::outs() << "ONNXIFIModelLoader::parse 8\n";
   RETURN_IF_ERR(loader->setOutputNodes(graphDef));
-
+  // llvm::outs() << "ONNXIFIModelLoader::parse 9\n";
   return llvm::Expected<std::unique_ptr<ONNXIFIModelLoader>>(std::move(loader));
 }
 

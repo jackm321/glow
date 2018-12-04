@@ -53,6 +53,8 @@ public:
   /// \returns concurrency for the backend.
   int getConcurrency() { return concurrency_; }
 
+  onnxStatus checkGraph(const void* onnxModel, size_t onnxModelSize);
+
 private:
   int id_;
   int concurrency_;

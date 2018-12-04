@@ -31,7 +31,7 @@ private:
 
   /// Load the inputs from the GraphProto. This is useful when the
   /// initializers are not available.
-  llvm::Error loadInputs(ONNX_NAMESPACE::GraphProto &net);
+  llvm::Error loadInputs(ONNX_NAMESPACE::GraphProto &net, bool loadInputsAsTensors);
 
   /// Load pre-trained weights from \p weightDescriptors.
   llvm::Error loadWeights(uint32_t weightsCount,
@@ -56,7 +56,7 @@ public:
   /// \returns Error otherwise.
   static llvm::Expected<std::unique_ptr<ONNXIFIModelLoader>>
   parse(const void *onnxModel, uint32_t onnxModelSize, uint32_t weightsCount,
-        const onnxTensorDescriptorV1 *weightDescriptors, Function &F);
+        const onnxTensorDescriptorV1 *weightDescriptors, Function &F, llvm::StringRef caller);
 
   /// \returns empty std::vector if any of the ONNX operators from
   /// the \p onnxModel is not supported by the ONNX model parser.

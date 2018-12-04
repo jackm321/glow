@@ -56,7 +56,7 @@ onnxStatus Graph::initGraph(const void *onnxModel, size_t onnxModelSize,
   // TODO: make better error reporting.
   std::unique_ptr<ONNXIFIModelLoader> loader = TEMP_EXIT_ON_ERR(
       ONNXIFIModelLoader::parse(onnxModel, onnxModelSize, weightCount,
-                                weightDescriptors, *function_));
+                                weightDescriptors, *function_, "Graph::initGraph"));
 
   onnxInputToPlaceholder_ = loader->getInputVarsMapping();
   onnxOutputToPlaceholder_ = loader->getOutputVarsMapping();
@@ -64,6 +64,15 @@ onnxStatus Graph::initGraph(const void *onnxModel, size_t onnxModelSize,
   // Emit IR for the graph and compile it.
   backendPtr_->getEE().compile(CompilationMode::Infer, function_);
 
+  return ONNXIFI_STATUS_SUCCESS;
+}
+
+onnxStatus BackendId::checkGraph(const void* onnxModel, size_t onnxModelSize) {
+  auto function = getEE().getModule().createFunction("check");
+  std::unique_ptr<ONNXIFIModelLoader> loader = TEMP_EXIT_ON_ERR(
+      ONNXIFIModelLoader::parse(onnxModel, onnxModelSize, 0 /*weightCount*/,
+                                nullptr /*weightDescriptors*/, *function, "BackendId::checkGraph"));
+  getEE().getModule().eraseFunction(function);
   return ONNXIFI_STATUS_SUCCESS;
 }
 

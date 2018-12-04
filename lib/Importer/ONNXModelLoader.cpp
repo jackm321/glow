@@ -681,7 +681,10 @@ llvm::Error ONNXModelLoader::loadOperator(const ONNX_NAMESPACE::NodeProto &op) {
     return llvm::Error::success();
   }
 
-  RETURN_ERR("Failed to load operator.");
+  std::string finalErrStr = "Failed to load operator: ";
+  finalErrStr+= typeName;
+
+  RETURN_ERR(finalErrStr);
 }
 
 llvm::Error ONNXModelLoader::loadInitializers(ONNX_NAMESPACE::GraphProto &net) {
