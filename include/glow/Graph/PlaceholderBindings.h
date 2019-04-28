@@ -69,12 +69,12 @@ public:
 
   /// Allocates a tensor to back the placeholder \p P. The new tensor has the
   /// type of P.
-  Tensor *allocate(Placeholder *P);
+  Tensor *allocate(Placeholder *P, bool doZero = true);
 
   /// Allocates zero-initialized backing tensors to all placeholders in \p lst
   /// that are not currently allocated in the bindings.
   /// \returns the number of tensors that were allocated.
-  unsigned allocate(std::list<Placeholder *> &lst);
+  unsigned allocate(std::list<Placeholder *> &lst, bool doZero = true);
 
   /// \returns the first placeholder in \p list that is not allocated by this
   /// bindings. This method returns null if all placeholders in the list are

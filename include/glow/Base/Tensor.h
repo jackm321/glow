@@ -26,6 +26,8 @@
 
 #include "llvm/ADT/ArrayRef.h"
 
+constexpr bool doZeroDefault = true;
+
 namespace glow {
 
 //===----------------------------------------------------------------------===//
@@ -161,8 +163,8 @@ public:
   Tensor() = default;
 
   /// Initialize from a list of float literals.
-  Tensor(const std::initializer_list<float> &vec) {
-    reset(ElemKind::FloatTy, {vec.size()});
+  Tensor(const std::initializer_list<float> &vec, bool doZero = doZeroDefault) {
+    reset(ElemKind::FloatTy, {vec.size()}, doZero);
     auto *data = getRawDataPointer<float>();
     int i = 0;
     for (auto &f : vec) {
@@ -171,20 +173,22 @@ public:
   }
 
   /// Allocate and initialize a new tensor.
-  explicit Tensor(TypeRef ty) : data_(nullptr), type_(*ty), isUnowned_{false} {
-    reset(*ty);
+  explicit Tensor(TypeRef ty, bool doZero = doZeroDefault)
+      : data_(nullptr), type_(*ty), isUnowned_{false} {
+    reset(*ty, doZero);
   }
 
   /// Allocate and initialize a new tensor.
-  explicit Tensor(const Type &ty)
+  explicit Tensor(const Type &ty, bool doZero = doZeroDefault)
       : data_(nullptr), type_(ty), isUnowned_{false} {
-    reset(ty);
+    reset(ty, doZero);
   }
 
   /// Allocate and initialize a float new tensor.
-  Tensor(ElemKind elemTy, llvm::ArrayRef<size_t> dims)
+  Tensor(ElemKind elemTy, llvm::ArrayRef<size_t> dims,
+         bool doZero = doZeroDefault)
       : data_(nullptr), type_(elemTy, dims), isUnowned_{false} {
-    reset(elemTy, dims);
+    reset(elemTy, dims, doZero);
   }
 
   /// Construct an unowned tensor provided an existing payload buffer.
@@ -198,9 +202,9 @@ public:
 
   /// Allocate and initialize a new integer tensor with \p scale and \p offset.
   Tensor(ElemKind elemTy, llvm::ArrayRef<size_t> dims, float scale,
-         int32_t offset)
+         int32_t offset, bool doZero = doZeroDefault)
       : data_(nullptr), type_(elemTy, dims, scale, offset), isUnowned_{false} {
-    reset(type_);
+    reset(type_, doZero);
   }
 
   Tensor(const Tensor &other) = delete;
@@ -257,25 +261,30 @@ public:
 
   /// Reset the shape and type of this tensor to match the shape and type of
   /// \p other.
-  void reset(const Tensor *other) { reset(other->getType()); }
+  void reset(const Tensor *other, bool doZero = doZeroDefault) {
+    reset(other->getType(), doZero);
+  }
 
-  void reset(ElemKind elemTy, llvm::ArrayRef<size_t> shape) {
+  void reset(ElemKind elemTy, llvm::ArrayRef<size_t> shape,
+             bool doZero = doZeroDefault) {
     Type t(elemTy, shape);
-    reset(t);
+    reset(t, doZero);
   }
 
   void reset(ElemKind elemTy, llvm::ArrayRef<size_t> shape, float scale,
-             int32_t offset) {
+             int32_t offset, bool doZero = doZeroDefault) {
     Type t(elemTy, shape, scale, offset);
-    reset(t);
+    reset(t, doZero);
   }
 
   /// Assigns a new shape to the tensor and allocates a new buffer.
-  void reset(const Type &T) {
+  void reset(const Type &T, bool doZero = doZeroDefault) {
     // If the new size is identical to the allocated size then there is no need
     // to re-allocate the buffer.
     if (type_ == T && getData()) {
-      zero();
+      if (doZero) {
+        zero();
+      }
       return;
     }
 
@@ -291,7 +300,9 @@ public:
     assert(size() > 0 && "Tensors must always have positive size.");
     size_t count = size() * type_.getElementSize();
     data_ = reinterpret_cast<char *>(alignedAlloc(count, TensorAlignment));
-    zero(getElementType() == ElemKind::UInt8FusedQTy);
+    if (doZero) {
+      zero(getElementType() == ElemKind::UInt8FusedQTy);
+    }
   }
 
   ~Tensor() {

@@ -105,7 +105,7 @@ ExecutionState::ExecutionState(RunIdentifierTy id, const DAGNode *root,
         auto PH = module_->getPlaceholderByName(symbolName);
         // If a PH name is provided it had to come from the Module originally.
         DCHECK(PH) << "Placeholder: " << symbolName << " is not in the module";
-        nodeInputPhBindings->allocate(PH);
+        nodeInputPhBindings->allocate(PH, /* doZero */ false);
       }
     }
 
@@ -463,7 +463,7 @@ void ThreadPoolExecutor::handleDeviceManagerResult(
     executionState->insertIntoTraceContext(traceContext->getTraceEvents());
   }
 
-  if (noNodesInflight) {
+  if (!runWasSuccess || noNodesInflight) {
     // If there are no nodes inflight, that means all nodes are done. Call
     // the callback and erase the state information.
     ResultCBTy cb = executionState->getCallback();

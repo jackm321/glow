@@ -108,15 +108,16 @@ PlaceholderBindings PlaceholderBindings::clone() const {
   return cloned;
 }
 
-Tensor *PlaceholderBindings::allocate(Placeholder *P) {
+Tensor *PlaceholderBindings::allocate(Placeholder *P, bool doZero) {
   assert(!map_.count(P) && "Placeholder already registered");
-  Tensor *T = new Tensor(P->getType());
+  Tensor *T = new Tensor(P->getType(), doZero);
   map_[P] = T;
   nameMap_[P->getName()] = P;
   return T;
 }
 
-unsigned PlaceholderBindings::allocate(std::list<Placeholder *> &lst) {
+unsigned PlaceholderBindings::allocate(std::list<Placeholder *> &lst,
+                                       bool doZero) {
   unsigned allocated = 0;
   // For each placeholder in the list:
   for (Placeholder *P : lst) {
@@ -126,7 +127,7 @@ unsigned PlaceholderBindings::allocate(std::list<Placeholder *> &lst) {
     }
 
     // Allocate a tensor to back P.
-    allocate(P);
+    allocate(P, doZero);
     allocated++;
   }
   return allocated;
