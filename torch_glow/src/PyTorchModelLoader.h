@@ -148,6 +148,16 @@ private:
 
   /// Load a PyTorch max_pool2d node.
   void loadMaxPool2d(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch linear node.
+  // TODO: delete
+  void loadLinear(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch matmul or mm node.
+  void loadMatmul(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch t (transpose) node.
+  void loadTranspose(const torch::jit::Node *ptNode);
 };
 
 #endif // GLOW_IMPORTER_PYTORCH_PYTORCHMODELLOADER_H

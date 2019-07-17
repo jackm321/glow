@@ -1282,6 +1282,10 @@ ModuloNode *Function::createModulo(llvm::StringRef name, NodeValue input,
   }                                                                            \
   NODE_NAME_##Node *Function::create##NODE_NAME_(                              \
       llvm::StringRef name, TypeRef T, NodeValue LHS, NodeValue RHS) {         \
+    if (!(LHS.dims() == RHS.dims())) {                                         \
+      llvm::errs() << "lhs dims: " << LHS.dims()                               \
+                   << " rhs dims: " << RHS.dims() << "\n";                     \
+    }                                                                          \
     assert(LHS.dims() == RHS.dims() && "Invalid operand shapes");              \
     TypeRef OT = getParent()->uniqueType(*T);                                  \
     return addNode(new NODE_NAME_##Node(name, OT, LHS, RHS));                  \

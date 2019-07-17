@@ -445,6 +445,91 @@ void PyTorchModelLoader::loadMaxPool2d(const torch::jit::Node *ptNode) {
   addGlowNodeValue(outputs[0], output);
 }
 
+void PyTorchModelLoader::loadLinear(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 3);
+  assert(outputs.size() == 1);
+
+  // Indexes of aten::linear inputs.
+  struct Inputs {
+    enum {
+      input = 0,   // n-dimensional
+      weights = 1, // 2D
+      bias = 2,    // optional
+    };
+  };
+
+  glow::NodeValue input = getGlowNodeValue(inputs[Inputs::input]);
+  glow::NodeValue weights = getGlowNodeValue(inputs[Inputs::weights]);
+  glow::NodeValue bias = getGlowNodeValue(inputs[Inputs::bias]);
+
+  std::cout << "input dims: " << input.dims().size() << std::endl;
+  std::cout << "weights dims: " << weights.dims().size() << std::endl;
+  std::cout << "bias dims: " << bias.dims().size() << std::endl;
+
+  // check that weights are 2d
+  // create bias if it doesn't exist
+  // createFullyConnected has a flatten maybe we can just use that?
+}
+
+void PyTorchModelLoader::loadMatmul(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 2);
+  assert(outputs.size() == 1);
+
+  glow::NodeValue lhs = getGlowNodeValue(inputs[0]);
+  glow::NodeValue rhs = getGlowNodeValue(inputs[1]);
+  auto lhsRank = lhs.dims().size();
+  auto rhsRank = rhs.dims().size();
+
+  glow::NodeValue output;
+
+  if (lhsRank == 1 && rhsRank == 1) {
+    // NOTE: Only Glow's 2d dotproduct operator accumulates so we prepend
+    // 1 to dims to turn inputs into 2d.
+    lhs = f_->createReshape("reshape_matmul_lhs", lhs, {1, lhs.dims()[0]});
+    rhs = f_->createReshape("reshape_matmul_rhs", rhs, {1, rhs.dims()[0]});
+    output = f_->createDotProduct("dotprod", lhs, rhs);
+  } else if (lhsRank == 2 && rhsRank == 2) {
+    output = f_->createMatMul("matmul", lhs, rhs);
+  } else if (lhsRank == 1 && rhsRank == 2) {
+    // Prepend a 1 to lhs's shape if it's 1d.
+    lhs = f_->createReshape("reshape_matmul_lhs", lhs, {1, lhs.dims()[0]});
+    output = f_->createMatMul("matmul", lhs, rhs);
+    output =
+        f_->createReshape("reshape_matmul_output", output, {rhs.dims()[1]});
+  } else if (lhsRank == 2 && rhsRank == 1) {
+    // Append a 1 to rhs's shape if it's 1d.
+    rhs = f_->createReshape("reshape_matmul_rhs", rhs, {rhs.dims()[0], 1});
+    output = f_->createMatMul("matmul", lhs, rhs);
+    output =
+        f_->createReshape("reshape_matmul_output", output, {lhs.dims()[0]});
+  } else if (lhsRank == 3 && (rhsRank == 2 || rhsRank == 3)) {
+    output = f_->createBatchMatMul("matmul", lhs, rhs);
+  } else {
+    assert(false && "unsupported matmul input ranks");
+  }
+
+  addGlowNodeValue(outputs[0], output);
+}
+
+void PyTorchModelLoader::loadTranspose(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 1);
+  assert(outputs.size() == 1);
+
+  glow::NodeValue input = getGlowNodeValue(inputs[0]);
+
+  assert(input.dims().size() == 2 && "Transpose requires input to be rank 2");
+
+  glow::NodeValue output = f_->createTranspose("transpose", input, {1, 0});
+
+  addGlowNodeValue(outputs[0], output);
+}
+
 void PyTorchModelLoader::loadConstant(const torch::jit::Node *ptNode) {
   auto inputs = ptNode->inputs();
   auto outputs = ptNode->outputs();
@@ -553,6 +638,18 @@ void PyTorchModelLoader::populateNodeLoaderMapping() {
 
   nodeLoaderMapping_[at::Symbol::fromQualString("aten::max_pool2d")] =
       [this](const torch::jit::Node *node) { return loadMaxPool2d(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::linear")] =
+      [this](const torch::jit::Node *node) { return loadLinear(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::matmul")] =
+      [this](const torch::jit::Node *node) { return loadMatmul(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::mm")] =
+      [this](const torch::jit::Node *node) { return loadMatmul(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::t")] =
+      [this](const torch::jit::Node *node) { return loadTranspose(node); };
 }
 
 void PyTorchModelLoader::loadNode(const torch::jit::Node *node) {
