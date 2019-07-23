@@ -174,6 +174,9 @@ public:
   /// \returns the shape of the tensor.
   llvm::ArrayRef<size_t> dims() const { return type_.dims(); }
 
+  /// \returns the rank of the tensor.
+  uint8_t rank() const { return type_.rank(); }
+
   /// \returns the number of elements in the tensor.
   size_t size() const { return type_.size(); }
 
@@ -735,6 +738,8 @@ public:
   llvm::ArrayRef<size_t> dims() const {
     return llvm::ArrayRef<size_t>(sizes_, numDims_);
   }
+
+  uint8_t rank() const { return numDims_; }
 
   /// \returns the number of elements in the whole tensor.
   size_t size() const { return tensor_->size(); }

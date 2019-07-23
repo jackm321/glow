@@ -98,6 +98,8 @@ ElemKind NodeValue::getElementType() const {
 
 llvm::ArrayRef<size_t> NodeValue::dims() const { return getType()->dims(); }
 
+uint8_t NodeValue::rank() const { return getType()->rank(); }
+
 NodeHandle::NodeHandle(Node *parent, Node *N) : NodeValue(N), parent_(parent) {
   setOperand(N, 0);
 }

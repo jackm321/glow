@@ -72,7 +72,7 @@ const glow::Handle<T> getGlowConstantPayload(const glow::Node *glowNode) {
 template <typename T, typename OutT = T>
 std::vector<OutT> expandParamIfNeeded(const glow::Handle<T> &handle,
                                       size_t targetSize) {
-  assert(handle.dims().size() == 1 && "Expected a 1d Glow Tensor");
+  assert(handle.rank() == 1 && "Expected a rank 1 Glow Tensor");
   assert(handle.size() == 1 ||
          handle.size() == targetSize &&
              "Expected input size to be either 1 or the target size");
@@ -332,7 +332,7 @@ void PyTorchModelLoader::loadBatchNorm(const torch::jit::Node *ptNode) {
   (void)trainingHandle;
 
   glow::NodeValue input = getGlowNodeValue(inputs[Inputs::input]);
-  assert(input.dims().size() == 4);
+  assert(input.rank() == 4);
 
   size_t numChannels = input.dims()[1];
 
@@ -490,12 +490,96 @@ void PyTorchModelLoader::loadTranspose(const torch::jit::Node *ptNode) {
   glow::NodeValue input = getGlowNodeValue(inputs[0]);
   glow::NodeValue output;
 
-  if (input.dims().size() == 1) {
+  if (input.rank() == 1) {
     output = input;
-  } else if (input.dims().size() == 2) {
+  } else if (input.rank() == 2) {
     output = f_->createTranspose("transpose", input, {1, 0});
   } else {
     assert(false && "Transpose requires input to have rank <= 2");
+  }
+
+  addGlowNodeValue(outputs[0], output);
+}
+
+void PyTorchModelLoader::loadMM(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 2);
+  assert(outputs.size() == 1);
+
+  glow::NodeValue lhs = getGlowNodeValue(inputs[0]);
+  glow::NodeValue rhs = getGlowNodeValue(inputs[1]);
+
+  assert((lhs.rank() == 2 && rhs.rank() == 2) &&
+         "mm op does not broadcast and requires both operands to be matrices.");
+
+  auto output = f_->createMatMul("mm", lhs, rhs);
+
+  addGlowNodeValue(outputs[0], output);
+}
+
+void PyTorchModelLoader::loadMV(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 2);
+  assert(outputs.size() == 1);
+
+  glow::NodeValue lhs = getGlowNodeValue(inputs[0]);
+  glow::NodeValue rhs = getGlowNodeValue(inputs[1]);
+
+  assert((lhs.rank() == 2 && rhs.rank() == 1) &&
+         "mv op does not broadcast and requires a matrix and a vector as "
+         "operands.");
+
+  // Reshape rhs into a matrix.
+  rhs = f_->createReshape("reshape_rhs", rhs, {rhs.dims()[0], 1});
+
+  glow::NodeValue output = f_->createMatMul("mv", lhs, rhs);
+
+  // Reshape output back to a vector.
+  output = f_->createReshape("reshape_mv_output", output, {output.dims()[0]});
+
+  addGlowNodeValue(outputs[0], output);
+}
+
+void PyTorchModelLoader::loadMatmul(const torch::jit::Node *ptNode) {
+  auto inputs = ptNode->inputs();
+  auto outputs = ptNode->outputs();
+  assert(inputs.size() == 2);
+  assert(outputs.size() == 1);
+
+  glow::NodeValue lhs = getGlowNodeValue(inputs[0]);
+  glow::NodeValue rhs = getGlowNodeValue(inputs[1]);
+
+  const auto lhsRank = lhs.rank();
+  const auto rhsRank = rhs.rank();
+
+  glow::NodeValue output;
+
+  if (lhsRank == 1 && rhsRank == 1) {
+    // NOTE: Only Glow's 2d dotproduct operator accumulates so we prepend
+    // 1 to dims to turn inputs into 2d.
+    lhs = f_->createReshape("reshape_matmul_lhs", lhs, {1, lhs.dims()[0]});
+    rhs = f_->createReshape("reshape_matmul_rhs", rhs, {1, rhs.dims()[0]});
+    output = f_->createDotProduct("dotprod", lhs, rhs);
+  } else if (lhsRank == 2 && rhsRank == 2) {
+    output = f_->createMatMul("matmul", lhs, rhs);
+  } else if (lhsRank == 1 && rhsRank == 2) {
+    // Prepend a 1 to lhs's shape if it's 1d.
+    lhs = f_->createReshape("reshape_matmul_lhs", lhs, {1, lhs.dims()[0]});
+    output = f_->createMatMul("matmul", lhs, rhs);
+    output =
+        f_->createReshape("reshape_matmul_output", output, {rhs.dims()[1]});
+  } else if (lhsRank == 2 && rhsRank == 1) {
+    // Append a 1 to rhs's shape if it's 1d.
+    rhs = f_->createReshape("reshape_matmul_rhs", rhs, {rhs.dims()[0], 1});
+    output = f_->createMatMul("matmul", lhs, rhs);
+    output =
+        f_->createReshape("reshape_matmul_output", output, {lhs.dims()[0]});
+    // } else if (lhsRank == 3 && (rhsRank == 2 || rhsRank == 3)) {
+    //   output = f_->createBatchMatMul("matmul", lhs, rhs);
+  } else {
+    assert(false && "unsupported matmul input ranks");
   }
 
   addGlowNodeValue(outputs[0], output);
@@ -620,6 +704,15 @@ void PyTorchModelLoader::populateNodeLoaderMapping() {
 
   nodeLoaderMapping_[at::Symbol::fromQualString("aten::t_")] =
       [this](const torch::jit::Node *node) { return loadTranspose(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::mm")] =
+      [this](const torch::jit::Node *node) { return loadMM(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::mv")] =
+      [this](const torch::jit::Node *node) { return loadMV(node); };
+
+  nodeLoaderMapping_[at::Symbol::fromQualString("aten::matmul")] =
+      [this](const torch::jit::Node *node) { return loadMatmul(node); };
 }
 
 void PyTorchModelLoader::loadNode(const torch::jit::Node *node) {

@@ -48,6 +48,11 @@ llvm::ArrayRef<size_t> Node::dims(unsigned resNo) const {
   return TR->dims();
 }
 
+uint8_t Node::rank(unsigned resNo) const {
+  TypeRef TR = getType(resNo);
+  return TR->rank();
+}
+
 void Node::addResult(TypeRef T) {
   assert(numRes_ < maxNodeResno_ && "Too many results");
   types_[numRes_++] = T;

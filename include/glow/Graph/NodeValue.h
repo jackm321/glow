@@ -91,6 +91,7 @@ public:
   /// @{
   ElemKind getElementType() const;
   llvm::ArrayRef<size_t> dims() const;
+  uint8_t rank() const;
   /// @}
 
   bool operator==(const NodeValue &O) const {

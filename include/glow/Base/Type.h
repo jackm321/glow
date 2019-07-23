@@ -421,6 +421,9 @@ struct Type final {
   /// \returns the shape of the tensor.
   llvm::ArrayRef<size_t> dims() const { return {sizes_, numSizes_}; }
 
+  /// \returns the rank of the tensor.
+  uint8_t rank() const { return numSizes_; }
+
   /// \returns the number of elements in the tensor.
   size_t size() const {
     size_t s = 1;

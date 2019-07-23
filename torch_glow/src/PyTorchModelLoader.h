@@ -154,6 +154,15 @@ private:
 
   /// Load a PyTorch t (transpose) node.
   void loadTranspose(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch mm node.
+  void loadMM(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch mv node.
+  void loadMV(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch matmul node.
+  void loadMatmul(const torch::jit::Node *ptNode);
 };
 
 #endif // GLOW_IMPORTER_PYTORCH_PYTORCHMODELLOADER_H

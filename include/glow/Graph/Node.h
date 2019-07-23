@@ -169,6 +169,7 @@ public:
   /// @{
   ElemKind getElementType(unsigned resNo) const;
   llvm::ArrayRef<size_t> dims(unsigned resNo) const;
+  uint8_t rank(unsigned resNo) const;
   /// @}
 
 protected:
