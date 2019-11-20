@@ -92,11 +92,6 @@ Error CachingGraphRunner::runImpl(const PerGlowGraphInfo &info,
       glow::TypeRef ty = ph->getType();
       glow::Tensor t(input.toTensor().data_ptr(), ty);
       bindings->insert(ph, std::move(t));
-    } else if (input.isObject()) {
-      // Objects are only used for loading attributes at compile time.
-      continue;
-    } else {
-      return MAKE_ERR("Only Tensor and Object IValue inputs are accepted");
     }
   }
 

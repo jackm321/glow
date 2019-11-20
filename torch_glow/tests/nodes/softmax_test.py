@@ -11,3 +11,12 @@ def test_softmax_basic():
 
     inputs = torch.randn(2, 3)
     jitVsGlow(softmax_basic, inputs, expected_fused_ops={"aten::softmax"})
+
+
+def test_softmax_negative_dim():
+    """Basic test of the PyTorch SoftMax Node on Glow."""
+    def softmax_basic(inputs):
+        return F.softmax(inputs, dim=-1)
+
+    inputs = torch.randn(2, 3)
+    jitVsGlow(softmax_basic, inputs, expected_fused_ops={"aten::softmax"})

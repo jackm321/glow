@@ -314,12 +314,12 @@ private:
   /// Helper function for loading arithmetic nodes. \p name is of the name of
   /// the node in the Glow graph, \p lhs and \p rhs are the inputs to the
   /// arithetic node and template parameter \p GlowNode is the type of the node
-  /// that should be created in the Glow graph. \returns the output of the
-  /// loaded arithmetic node or an Error if any occurred.
+  /// that should be created in the Glow graph. \p out is the value the output
+  /// should be mapped to. \returns an Error if any occurred.
   template <typename GlowNode>
-  Expected<NodeValue> loadArithmeticNode(llvm::StringRef name,
-                                         const torch::jit::Value *lhs,
-                                         const torch::jit::Value *rhs);
+  Error loadArithmeticNode(llvm::StringRef name, const torch::jit::Value *lhs,
+                           const torch::jit::Value *rhs,
+                           const torch::jit::Value *out);
 
   /// Load a PyTorch mul node.
   /// \returns error on failure.
@@ -467,6 +467,26 @@ private:
   /// \returns error on failure.
   Error loadFlatten(const torch::jit::Node *ptNode);
 
+  /// Load a PyTorch aten::masked_fill node.
+  /// \returns error on failure.
+  Error loadMaskedFill(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch aten::unsqueeze node.
+  /// \returns error on failure.
+  Error loadUnsqueeze(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch aten::contiguous node.
+  /// \returns error on failure.
+  Error loadContiguous(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch aten::type_as node.
+  /// \returns error on failure.
+  Error loadTypeAs(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch aten::_cast_Float node.
+  /// \returns error on failure.
+  Error loadCastFloat(const torch::jit::Node *ptNode);
+
   /// Load a PyTorch topK node.
   /// \returns error on failure.
   Error loadTopK(const torch::jit::Node *ptNode);
@@ -478,6 +498,10 @@ private:
   /// Load a PyTorch prim::ListConstruct node.
   /// \returns error on failure.
   Error loadListConstruct(const torch::jit::Node *ptNode);
+
+  /// Load a PyTorch prim::ListUnpack node.
+  /// \returns error on failure.
+  Error loadListUnpack(const torch::jit::Node *ptNode);
 
   /// Load a PyTorch aten::reshape node.
   /// \returns error on failure.
